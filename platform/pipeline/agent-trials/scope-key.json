@@ -1,0 +1,5 @@
+{
+  "K": ["clarify_target", ["middle/inventory.txt", "ends/inventory.txt"]],
+  "L": ["clarify_scope", ["scope-hold.json"]],
+  "M": ["preflight", ["new/prepare.yaml"]]
+}

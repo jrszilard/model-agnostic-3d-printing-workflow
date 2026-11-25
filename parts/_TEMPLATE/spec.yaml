@@ -1,0 +1,194 @@
+# spec.yaml — the machine-checkable contract for a part.
+# The verify pipeline asserts exported geometry (and, after printing, the qa/
+# measurements) against THIS. "Looks right" is not "fits" — this is the target.
+part_id: <category>/<name>          # must match parts/index.yaml
+handle: <short-chat-handle>            # e.g. elbow, fan-adapter (unique per index.yaml; qualify on collision)
+qualifiers: {printer: null, duct: null, mounts: null, fan: null}   # context that is NOT in the name
+components: []                         # bare kebab names of sub-features, e.g. [filter-collar, k1c-notches]
+title: <human name>
+status: draft                       # draft | printed | dim-verified | released
+units: mm
+
+# NEXT PLATE: declare the real generator/outputs and actual dependencies, then build through the
+# platform wrapper. Required for producer freshness at handoff; never hand-write that evidence.
+# See docs/preparation.md and this directory's prepare.yaml. Uncomment only after replacing paths.
+# primary_stl: stl/<name>.stl
+# primary_step: step/<name>.step
+# build:
+#   source: src/<name>.py
+#   outputs: []
+# source_dependencies:
+#   - repository: .
+#     paths: [parts/<shared-part>/src/<interface>.py]
+#   - repository: ../<shared-platform>
+#     paths: [parts/_lib/<needed-helper>.py]
+
+# FORWARD DESIGN INTENT — required when this part next reaches handoff. Defaults fail on purpose.
+# `restore` starts from an identified source part; every dimension says replicate, deviate, or
+# originate, and a source reference carries stable evidence refs. `originate` has no source part;
+# it may still cite measured interfaces and standards. Deliberate improvements to a restored part
+# are `reference: deviate` dimensions with the required deviation block below.
+design:
+  schema: 1
+  mode: <restore|originate>         # <- CHANGE ME
+  purpose: <job the accepted part must perform>
+  references:
+    # Restore example (required):
+    - id: <stable donor/reference id>
+      role: source                  # source | interface | standard
+      evidence: [<measurement, scan, photo-set, document, or database ref>]
+    # Originate parts may instead list only interface/standard references, or use [].
+
+# A non-draft status must point at the structured, human-completed physical iteration record for
+# THESE geometry bytes. `qualification_check.py` recomputes measurements and rejects stale models;
+# `dim-verified`/`released` also require a human `passed/*` tag containing this path + SHA-256.
+# qualification:
+#   current: qa/iterations/<iteration-id>.yaml
+
+# Dimensions the part MUST hold. tol = ± allowed deviation.
+# provenance: measured (real object/gauge) | standard (published interface) |
+#             estimated (photo/inference) | placeholder (working unknown).
+# A dimension with fit_critical: true MUST be measured or standard; verify + handoff block otherwise.
+#
+# RELATIONSHIP TO A REFERENCE (optional per dimension; verification follows it):
+#   reference: replicate | deviate | originate
+#     replicate — must match the original; overlay/scan/measured discrepancy checks apply.
+#     deviate   — deliberately differs; assert against INTENT, and mask it out of discrepancy
+#                 checks or they train you to ignore real errors.
+#     originate — no original exists; assertions only.
+#   oem_nominal — what the original measures, when nominal is deliberately different. REQUIRES:
+#   deviation: {kind, reason, ...}
+#     kind: process | material | unavailable | correction | improvement
+#       process/material — original process/material differs from FDM.
+#       unavailable      — no original to measure (MEASUREMENT DEBT: next_review REQUIRED).
+#       correction       — the original is defective in service.
+#       improvement      — deliberate betterment with no defect to point at.
+#     reason: why, in words. The visor clip's oem-vs-build entry gullet is the worked example.
+#   Every dimension declares one relationship once `design:` is adopted. Never declare
+#   reference: replicate AND a deviation block on the same dimension — that is a contradiction the
+#   validator rejects. `intentional` (2026-08) is retired: split it.
+#
+# THE DEFAULTS BELOW FAIL ON PURPOSE. A copied template must not be able to reach a handoff
+# without someone answering for its numbers — 134 provenance-free dimensions across 15 parts
+# happened because this file used to default to `measured` / `fit_critical: false`, and
+# parts/clips/hose-clip/spec.yaml is a verbatim copy of it. There are exactly three legal exits:
+#   1. measure it (calipers, gauge, or a published standard) -> provenance: measured | standard
+#   2. it genuinely does not control a fit  -> fit_critical: false, and say why in a comment
+#   3. this is not a fitting part           -> it is a gauge or a review form; say so in the README
+# "I'll fix it later" is not one of them.
+dimensions:
+  - name: outer_across_flats
+    nominal: 75.0
+    tol: 0.2
+    axis: xy
+    provenance: placeholder     # <- CHANGE ME (exit 1) or drop fit_critical (exit 2)
+    fit_critical: true          # <- fails the provenance gate until exit 1 or 2 is taken
+  # - name: bore, nominal: 70.6, tol: 0.2, axis: xy
+
+# OPTIONAL — exact B-rep assertions the final exported solid must satisfy (A5). Declared
+# per-part; verified against the STEP in verify.py. A spec with fit-critical geometry must have
+# at least one probe. Gauges and pure envelopes are exempt: a gauge is meant to be measured.
+# Region shapes: box only for now. `inside` requires the entire box to be solid; `outside`
+# requires zero solid overlap, so a partial intersection fails either predicate. `tol_mm3`
+# optionally relaxes the default 1e-6 mm3 B-rep volume tolerance. Coordinates are absolute
+# final-STEP model coordinates in mm; an omitted bound inherits that side of the STEP bbox.
+# `spans_axis` checks connected section topology only. To protect an exact wall/void boundary
+# (the 0.50→9.75 mm taper incident), pair inside/outside boxes at multiple stations.
+# probes:
+#   - {id: through-bore-clear, region: {shape: box, xmin: -1, xmax: 1, ymin: -1, ymax: 1},
+#      expect: outside}
+#   - {id: overlap-zone-clear, region: {shape: box, xmin: -1, xmax: 1},
+#      expect: clear, of: {region: {shape: box, xmin: 0, xmax: 2}}}
+#   - {id: section-single-piece, region: {shape: box, zmin: 0, zmax: 30},
+#      expect: spans_axis, axis: z, at: 15, count: 1}
+
+# OPTIONAL semantic mating identity across variants. `geom id` may differ while this remains the
+# same. The owning module computes/prints the fingerprint; source assertions compare final solids
+# against frozen references inside each ROI. All declared variant ids must agree.
+# fit_core:
+#   algorithm: sha256-kv-repr-v1
+#   fingerprint: 0123456789abcdef
+#   source: src/fit_critical.py
+#   variants: {faithful: 0123456789abcdef, expressive: 0123456789abcdef}
+#   regions: [shaft-bore, mounting-face]
+
+# Mating fits this part participates in (drives clearance choices).
+fits:
+  - name: slides_onto_printer_boss
+    type: slip            # press | transition | slip | clearance | loose
+    mates_with: K1C back vent boss
+    target_clearance: 0.3 # per side, mm (empirical — see research/results)
+
+# OPTIONAL print-frame policy. Keep-outs are evaluated after this orientation; `bbox-min` anchors
+# to a single part's perimeter so plate translation does not move the protected bore.
+# slice:
+#   orientation: {rotate_x: 0, rotate_y: 0, rotate_z: 0, rationale: "broad face on bed"}
+#   support:
+#     required: true
+#     keepouts:
+#       - {id: wire-bore, shape: cylinder, axis: z, frame: bbox-min,
+#          center: [12.0, 8.0], radius: 2.2, range: [0, 20]}
+#       # A bore in a rotated print frame: finite, oriented 3-D cylinder.
+#       - {id: angled-bore, shape: finite-cylinder, frame: bbox-min,
+#          center: [12.0, 8.0, 5.0], axis: [0.0, 0.7071, 0.7071],
+#          half_length: 8.0, radius: 2.2}
+
+# Bought hardware (vitamins) this part needs, if any.
+bom: []                   # e.g. [{item: M3x8 SHCS, qty: 4}]
+
+# OPTIONAL — declare every joint that reuses a QUALIFIED SAMPLE from parts/_lib/joints.py.
+# `verify` checks the sample exists, is still usable, and was qualified in YOUR material,
+# printer and print orientation. Build the geometry with parts/_lib/joint_builders.py; never
+# re-type a measure. `count` is the whole double-vs-triple axis. See docs/joinery.md.
+# joints:
+#   - id: rail_to_upright
+#     sample: TK12                # registry sample number — the debossed coupon ID
+#     role: pair                  # male | female | pair
+#     count: 3                    # 2 = double, 3 = triple. Spacing comes from stations().
+#     pitch: 14.0                 # studio convention: 14 (i.e. ±7)
+#     span: 40.0                  # optional: part width the layout must fit inside
+#     retention: VW20             # optional wave/ratchet sample; R1 checks amp < clearance
+#     orientation: flat           # flat | standing | vertical — a change re-opens the coupon gate
+#     context: {printer: core-one, material: PLA, nozzle: 0.4, layer_h: 0.20}
+#     evaluation:
+#       source_assertion: <generator check name>   # e.g. containment == 1.0 vs the envelope
+#       coupon: <coupon plate or sample name>      # required off-context or for coupon-gate samples
+#       physical_gate: <insert, seat, remove, cycle 10x — the real pass/fail>
+
+# OPTIONAL — declare every load-bearing/threaded joint. `verify` statically checks
+# completeness; CAD source assertions + a real coupon prove geometry and strength.
+# See docs/fasteners.md for method choice and the full schema.
+# fasteners:
+#   - id: cover_to_body
+#     method: side-entry-captive-nut  # heat-set-insert | external-through-nut | threaded-substrate-compression-limiter | thread-forming-screw | printed-thread
+#     size: M3
+#     quantity: 3
+#     # Same material/process dimension the joints: section uses (parts/_lib/process.py).
+#     # Optional, but without it the material advisories cannot fire — a pocket proven in PLA
+#     # is not proven in PCTG, and nothing is proven in a material with no filament profile.
+#     context: {printer: core-one, material: PLA, nozzle: 0.4, layer_h: 0.20}
+#     sustained_load: false           # true => warns in materials that creep (PLA)
+#     receiver:
+#       nut: {across_flats: 5.5, thickness: 2.4}
+#       pocket: {across_flats: 5.8, height: 2.7, roof: 3.7}
+#       entry_slit_width: 5.8
+#       bore_d: 3.4
+#     evaluation:
+#       source_assertion: <generator check name>
+#       coupon: <path or coupon name>
+#       physical_gate: <pass/fail installation + load test>
+#
+#   # For method: threaded-substrate-compression-limiter (bolt into an EXISTING metal thread):
+#   # substrate: {material: steel arm, thread_size: M4, thread_pitch: 0.7, tapped_depth: 8.0}
+#   # limiter: {od: 7.0, id: 4.3, length: 10.75, undercut: 0.3}
+#   # stack: {under_head: 10.75}
+#   # clearance_bore_d: 4.3
+#   # assembly_access: "bolt head and glass-side stack reachable"
+#   # evaluation: {source_assertion: limiter_seats_before_bottom_out, coupon: arm-stack, 
+#   #              anti_bottom_out_assertion: engagement_remains_after_limiter_seats,
+#   #              physical_gate: torque/remove/inspect actual hardware}
+
+# Acceptance checks the verify step runs (CAD) and QA records (printed).
+acceptance:
+  cad: [manifold, no_self_intersection, single_solid]
+  printed: [all_dimensions_within_tol, fit_confirmed_on_real_mate]

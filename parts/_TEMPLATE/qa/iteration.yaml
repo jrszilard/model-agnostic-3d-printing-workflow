@@ -1,0 +1,97 @@
+# Structured physical-iteration record — TEMPLATE ONLY.
+# Prefer generating a byte-bound planned record after handoff:
+#   python3 platform/pipeline/verify/qualification_check.py init \
+#     --manifest build/<plate>/qualification_manifest.json --part parts/<category>/<part> \
+#     --id YYYY-MM-DD-i1 --kind coupon|full-part --objective "question this print answers" \
+#     --output parts/<category>/<part>/qa/iterations/YYYY-MM-DD-i1.yaml
+#
+# An agent may initialize/validate this file, but must leave all physical fields null and all checks
+# not-evaluated. Only the human who handled the identified print records execution, observations,
+# readings, and the physical-observation attestation.
+#
+# What the human SAYS about the print may be written down for them (Justin, 2026-11-11), with:
+#   python3 platform/pipeline/verify/qualification_check.py report --record <this file> \
+#     --by <human> --said "<their own words>" --reading works|does-not-work|mixed \
+#     --source <session note or message where they said it> --recorded-by <who is writing>
+# That appends to `reports` and sets the state to `reported`. It is their words, not an evaluation:
+# every check stays not-evaluated, nothing physical is filled in, and no status or passed tag accepts it.
+schema: 1
+iteration_id: <YYYY-MM-DD-i1>
+part_id: <category/name>
+parent: null
+attempt_kind: <coupon|full-part>
+objective: <one question this iteration answers>
+design_mode: <restore|originate>
+artifact:
+  handoff_manifest: {path: <build/.../qualification_manifest.json>, sha256: <64-hex>}
+  source: {commit: <40-hex>, dirty: false}
+  models:
+    - {path: <parts/.../stl/part.stl>, geom_id: <8-hex>, sha256: <64-hex>}
+  spec_sha256: <64-hex>
+  verify_stamp_sha256: <64-hex>
+  verify_step_sha256: <64-hex>
+  verify_report_sha256: <64-hex>
+  gcode_sha256: <64-hex>
+  project_3mf_sha256: <64-hex>
+  slice_meta_sha256: <64-hex>
+  effective_config_sha256: <64-hex>
+  profiles: {machine: <name>, process: <name>, filament: <name>}
+  slicer: {executable: <path>, reported_by_gcode: <name/version>}
+  overrides: []
+  post_hooks: []                 # [{path: <path>, sha256: <64-hex>}]
+  rotation: {x: 0.0, y: 0.0, z: 0.0}
+  support_requested: false
+  estimate: {filament_g: null, print_time: null, print_time_seconds: null}
+# Human records actual execution after the identified print. Profile names above are intent, not
+# proof of what machine/spool/environment was physically used.
+execution:
+  printer_id: null
+  material: null
+  material_brand: null
+  filament_lot: null             # manufacturer lot or locally assigned spool ID
+  dry_state: null
+  build_plate: null
+  nozzle_mm: null
+  layer_height_mm: null
+  ambient_c: null
+  ambient_rh_pct: null
+  actual_material_g: null         # optional actual, never silently replaced by slicer estimate
+  actual_print_time_minutes: null # optional actual
+  deviations: []                  # empty means none
+  post_processing: []             # empty means none
+outcome:
+  state: planned                 # planned | reported | printed | failed | passed
+  printed_at: null               # human records after a real print
+  operator: null
+  evaluated_at: null
+  evaluator: null
+  mate_or_application: null
+  checks:                        # initialized from spec.acceptance.printed
+    - id: <criterion-id>
+      result: not-evaluated      # not-evaluated | fail | pass
+      observation: null
+      evidence: []
+  measurements:
+    # - dimension: <spec dimension name>
+    #   raw_readings_mm: [<reading 1>, <reading 2>]
+    #   instrument: {id: <asset id>, resolution_mm: <number>}
+    #   uncertainty: {value_mm: <number>, basis: <repeat/calibration basis>}
+    #   result: <pass|fail>       # checker recomputes this including uncertainty
+    []
+learning:
+  failure_class: null            # required for failed: fit | dimension | process | ...
+  observation: null              # required for every evaluated attempt
+  next_change: null              # required for failed; edit the next spec/source from this
+  promoted_sample: null          # optional qualified process/joint sample, with exact context
+attestation: null
+# Evaluated form, completed only by the observing human:
+# attestation: {statement: physical-observation, by: <human>, at: <date/time>}
+reports: []
+# Each report, added by the `report` command above:
+# - by: <human who handled the print>
+#   said: <their own words, never a paraphrase>
+#   at: <ISO-8601 with timezone: when they said it>
+#   recorded_by: <who wrote it down>
+#   source: <where the words can be found>
+#   reading: <works|does-not-work|mixed>   # the recorder's reading of the words; never a pass
+#   next_change: <what changes next, or null>

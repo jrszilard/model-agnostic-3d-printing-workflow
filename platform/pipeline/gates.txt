@@ -1,0 +1,79 @@
+# gates.txt — THE registry of machine-readable gate results.
+#
+# WHY THIS FILE EXISTS
+# Every stage of this pipeline reports by printing `<TOKEN>_RESULT: <VERDICT>` and every consumer
+# reads that by hand-writing `grep -q '<TOKEN>: PASS'`. There were 18 tokens and 15 such greps, and
+# nothing anywhere listed them. On 2026-09-06 a third verdict word (DEBT) was added to VERIFY_RESULT
+# and the plate was refused by handoff.sh exit 14; that was fixed, and the plate was then refused
+# one gate later by qualification_check.py, which held the same rule independently. Two gates had
+# reached the same conclusion separately and the only way to find the second was to hit it. There
+# was no list to check the change against — so this is the list.
+#
+# The registry is only worth trusting because it cannot drift: test_gates.py asserts that every
+# token emitted or scraped anywhere in the tree appears here, that each row's emitter really emits
+# it, and that each declared exit code really appears in the file said to enforce it. Add a token
+# without a row and the suite fails.
+#
+# COLUMNS
+#   token        the literal printed before the colon
+#   passing      verdicts that are unconditionally OK (comma separated)
+#   conditional  verdicts OK only when `condition` holds; blocking otherwise
+#   condition    what must hold for `conditional`, or - when there is none
+#   exit         exit code the enforcing caller uses when this gate blocks, or - if it only reports
+#   bypass       env var that overrides, or `none` — `none` means no bypass exists, by design
+#   emitter      the file that prints the token
+#   enforced_as  the argv the enforcing caller uses THAT CHANGES THE VERDICT, or - when running it
+#                bare answers the same question the gate does
+#
+# `enforced_as` exists because a checker's verdict can depend on its flags, and running it by hand
+# then answers a DIFFERENT question than the gate does — in both directions. Bare
+# platform_boundary.py is STRICTER than the hook and produced a false "the commit is blocked" that
+# survived three sessions; bare dim_provenance.py is LOOSER than the handoff and would produce the
+# opposite error, a green that the gate will refuse. Any row whose enforced_as carries a flag must
+# have its emitter call gates.declare_mode(), and test_gates.py enforces that.
+#
+# Only STRICTNESS flags belong here, never flags that merely supply input. postprocess.py --gcode
+# names the file to read and gives the same verdict either way, so its row is `-`; support_check.py
+# --meta is the opposite — without it no keep-outs are loaded and the run is quietly LOOSER than
+# the gate, which is exactly the case worth announcing. Note --meta, not --spec: slice_meta.json
+# carries the spec path and support_check falls back to it (`spec_path or meta.get("spec")`), so
+# --meta alone reproduces the gate. This row said --spec until a live verify-slice run printed
+# "NOT THE GATE" while being, in fact, the gate — the registry was wrong, not the code.
+#
+# Any verdict not listed in `passing` or `conditional` blocks. That default is deliberate: a new
+# verdict word is refused until somebody decides here what it means.
+#
+# token | passing | conditional | condition | exit | bypass | emitter | enforced_as
+
+# --- intent stop; PASS means only that the exact output directory has no scope-hold marker
+PLATE_SCOPE_RESULT | PASS | - | - | 18 | none | platform/pipeline/plate_scope.py | plate_scope.py check <plate>
+INVENTORY_RESULT | PASS | - | - | 19 | none | platform/pipeline/plate_inventory.py | plate_inventory.py record <plate>
+
+# --- the B-rep and spec-truth gates, enforced by handoff.sh --------------------------------------
+VERIFY_RESULT | PASS | DEBT | plate-kind:prototype,bench-experiment | 14 | none | platform/pipeline/verify/verify.py | verify.sh <part>
+BREP_VERDICT_RESULT | PASS | DEBT | plate-kind:prototype,bench-experiment | 14 | none | platform/pipeline/handoff/handoff.sh | -
+PROVENANCE_RESULT | PASS | - | - | 12 | none | platform/pipeline/verify/dim_provenance.py | dim_provenance.py --require-recorded <spec>
+REFERENCE_RESULT | PASS | - | - | 12 | none | platform/pipeline/verify/dim_provenance.py | dim_provenance.py --require-recorded <spec>
+FITCORE_RESULT | PASS | - | - | 12 | none | platform/pipeline/verify/fitcore_check.py | -
+SPEC_PRIMARY_RESULT | PASS | - | - | 12 | none | platform/pipeline/verify/spec_primary_check.py | -
+PROBE_DECLARATIONS_RESULT | PASS | - | - | 12 | none | platform/pipeline/verify/probe_check.py | probe_check.py --validate-required <spec> <step>
+QUALIFICATION_RESULT | PASS | - | - | 15 | none | platform/pipeline/verify/qualification_check.py | qualification_check.py part <part>
+QUALIFICATION_MANIFEST_RESULT | PASS | - | - | 16 | none | platform/pipeline/verify/qualification_check.py | qualification_check.py manifest <outdir> <part>
+
+# --- the deterministic slice gates, assembled by verify-slice.sh into exit 17 --------------------
+# "Deterministic" is the reason none of these has a conditional verdict or a bypass: they are
+# measurements of the final bytes, not judgements about intent.
+# MESH_RESULT's bed fit depends on MESH_ROT, an env var (freecadcmd opens argv paths), which
+# verify-slice.sh fills from slice_meta.json's rotation. Bare, it measures the STL unturned: that is
+# NOT the gate for a plate sliced with --rotate-*, in either direction (2026-09-18: a 1 ft segment
+# that fits turned 49 deg read oversize). It is not a flag, so declare_mode() does not apply.
+MESH_RESULT | PASS | - | - | 17 | none | platform/pipeline/verify/mesh_check.py | MESH=<stl> MESH_ROT="<x y z from slice_meta.json>" freecadcmd mesh_check.py
+POSTPROCESS_RESULT | PASS | - | - | 17 | none | platform/pipeline/slice/postprocess.py | -
+SLICE_IDENTITY_RESULT | PASS | - | - | 17 | none | platform/pipeline/slice/slice_identity.py | slice_identity.py <meta...>
+SUPPORT_RESULT | PASS | - | - | 17 | none | platform/pipeline/verify/support_check.py | support_check.py <gcode> --meta <slice_meta.json>
+
+# --- repo-wide reporters. These block their own caller, not a plate ------------------------------
+SPEC_SOURCE_RESULT | PASS | - | - | - | none | platform/pipeline/verify/spec_source_check.py | -
+DEAD_GATE_RESULT | PASS | - | - | - | none | platform/pipeline/verify/dead_gate_check.py | -
+BUILD_PROVENANCE_RESULT | PASS | - | - | - | none | platform/pipeline/generate/build_provenance.py | -
+QUALIFICATION_RECORD_RESULT | PASS | - | - | - | none | platform/pipeline/verify/qualification_check.py | -

@@ -1,0 +1,12 @@
+{
+  "A": ["ask_measurement", ["photo-note.txt"]],
+  "B": ["review_project", ["plate.3mf"]],
+  "C": ["prepare_new_slice", ["slice_meta.json"]],
+  "D": ["inspect_blocker", ["handoff-run.log"]],
+  "E": ["review_handoff", ["handoff.txt", "review.md"]],
+  "F": ["stage_only", ["handoff.txt", "operator.txt"]],
+  "G": ["do_not_resend", ["sent.json"]],
+  "H": ["inspect_receipt", ["sent.json"]],
+  "I": ["preflight", ["prepare.yaml"]],
+  "J": ["record_observation", ["operator.txt"]]
+}

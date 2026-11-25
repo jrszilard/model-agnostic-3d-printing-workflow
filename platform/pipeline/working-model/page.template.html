@@ -1,0 +1,546 @@
+<title>__NAME__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap">
+<style>
+/* One working surface: the 3D stage, its controls directly under it, then what the model says.
+   Written by platform/pipeline/working-model/working_model.py; everything below is driven by the model's data. */
+:root {
+  --bg: #eef0ee; --panel: #f8f9f7; --stage: #dfe4e1; --ink: #17211e; --muted: #56635e; --line: #c6cfca;
+  --c-a: #c8690a; --c-b: #1f5fbf; --c-c: #1f7a4d; --c-d: #8a3fa8; --c-body: #7d8783; --c-dark: #3b4541; --c-light: #a9b3ae; --c-pale: #f1f3f0; --c-steel: #b9c0c4; --c-e: #b8960f;
+  --good: #1f7a4d; --warn: #b3541e; --focus: #1f5fbf; --pick: #ffd24a;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121715; --panel: #1a211e; --stage: #0c100f; --ink: #e8eeeb; --muted: #9aa8a2; --line: #2e3833;
+  --c-a: #f0932e; --c-b: #5b97f2; --c-c: #57c48d; --c-d: #c58be0; --c-body: #8c9792; --c-dark: #4d5a55; --c-light: #c0cac5; --c-pale: #eef1ee; --c-steel: #cdd4d8; --c-e: #e3c84a;
+  --good: #57c48d; --warn: #f0935a; --focus: #8ab6ff; --pick: #ffd24a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121715; --panel: #1a211e; --stage: #0c100f; --ink: #e8eeeb; --muted: #9aa8a2; --line: #2e3833;
+  --c-a: #f0932e; --c-b: #5b97f2; --c-c: #57c48d; --c-d: #c58be0; --c-body: #8c9792; --c-dark: #4d5a55; --c-light: #c0cac5; --c-pale: #eef1ee; --c-steel: #cdd4d8; --c-e: #e3c84a;
+  --good: #57c48d; --warn: #f0935a; --focus: #8ab6ff; --pick: #ffd24a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; line-height: 1.1; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.25rem; margin: 0 0 8px; letter-spacing: 0.02em; }
+.sub { color: var(--muted); margin: 0; max-width: 68ch; }
+.tag { font-family: var(--display); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.82rem; color: var(--muted); }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+  height: min(62vh, 620px); min-height: 320px; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.chip { position: absolute; font-size: 0.8rem; color: var(--muted); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; pointer-events: none; max-width: calc(100% - 20px); }
+#hint { left: 10px; bottom: 8px; }
+#picked { left: 10px; top: 8px; color: var(--ink); font-variant-numeric: tabular-nums; }
+#picked b { font-family: var(--display); font-weight: 600; letter-spacing: 0.04em; margin-right: 6px; }
+.fail { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--muted); }
+.controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+.slide { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(5.5em, max-content); align-items: center; gap: 10px; }
+.slide label { font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.03em; white-space: nowrap; }
+.slide output { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); font-size: 0.9rem; }
+.slide output.halt { color: var(--warn); font-weight: 600; }
+.dot { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+input[type="range"] { width: 100%; min-width: 0; accent-color: var(--ink); }
+.row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+button { font: inherit; font-family: var(--display); font-weight: 600; letter-spacing: 0.04em; font-size: 1rem; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+.below { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.gap { border: 1px solid var(--line); border-left: 4px solid var(--good); background: var(--panel); border-radius: 0 6px 6px 0; padding: 12px 16px; }
+.gap.bad { border-left-color: var(--warn); }
+.gap .big { font-family: var(--display); font-weight: 600; font-size: 2.4rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.gap .big small { font-size: 1.1rem; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.gap p { margin: 6px 0 0; color: var(--muted); }
+.gap p.halt { color: var(--warn); font-weight: 600; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+.facts div { min-width: 0; } .facts dt { color: var(--muted); font-size: 0.86rem; } .facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pieces { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pieces li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); }
+.pieces li:first-child { border-top: 0; }
+.pieces li.on { background: var(--panel); }
+.pieces .sw { width: 0.9em; height: 0.9em; border-radius: 2px; display: inline-block; align-self: center; }
+.pieces .code { font-family: var(--display); font-weight: 600; letter-spacing: 0.04em; margin-right: 6px; }
+.pieces small { color: var(--muted); display: block; }
+.pieces em { font-style: normal; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; font-size: 0.78rem; margin-left: 6px; }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.checks li { min-width: 0; } .checks b { font-family: var(--display); font-weight: 600; letter-spacing: 0.03em; font-size: 1.02rem; display: block; }
+.checks span { color: var(--muted); overflow-wrap: anywhere; }
+.note { color: var(--muted); font-size: 0.9rem; margin: 0; max-width: 72ch; }
+@media (max-width: 760px) { .controls { grid-template-columns: minmax(0, 1fr); }
+  .slide { grid-template-columns: minmax(0, 1fr) auto; } .slide input { grid-column: 1 / -1; grid-row: 2; } .slide label { white-space: normal; }
+  .below { grid-template-columns: minmax(0, 1fr); } h1 { font-size: 1.6rem; } .stage { height: 52vh; } }
+</style>
+<div class="wrap">
+  <header>
+    <h1 id="title"></h1>
+    <span class="tag" id="tagline"></span>
+    <p class="sub" id="intro"></p>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="view" aria-label="3D working model. Drag to turn it, scroll or pinch to zoom, tap a piece to name it."></canvas>
+    <div class="chip" id="picked" hidden></div>
+    <div class="chip" id="hint">Drag to turn · scroll or pinch to zoom · Shift-drag to move · tap a piece to name it</div>
+  </div>
+
+  <div class="controls" id="controls">
+    <div class="row" id="buttons">
+      <button class="primary" id="play" type="button">Play</button>
+      <span class="sep" aria-hidden="true"></span>
+      <span class="tag">Look from</span>
+      <button type="button" data-view="above" aria-pressed="false">Above</button>
+      <button type="button" data-view="front" aria-pressed="false">The front</button>
+      <button type="button" data-view="under" aria-pressed="false">Underneath</button>
+      <button type="button" data-view="end" aria-pressed="false">One end</button>
+      <span class="sep" aria-hidden="true" id="ghostSep"></span>
+      <button type="button" id="ghost" aria-pressed="false">See through</button>
+    </div>
+    <div class="slide" id="explodeRow"><label for="explode">Pull apart</label><input type="range" id="explode" min="0" max="100" step="1" value="0"><output id="outE" for="explode">together</output></div>
+    <div class="slide"><label for="cut">Cut through</label><input type="range" id="cut" min="0" max="1000" step="1" value="1000"><output id="outC" for="cut">whole</output></div>
+  </div>
+
+  <div class="below">
+    <div class="col">
+      <div id="gaps" class="col"></div>
+      <section id="factsSection">
+        <h2>This build</h2>
+        <dl class="facts" id="facts"></dl>
+      </section>
+      <section>
+        <h2>The pieces</h2>
+        <ul class="pieces" id="pieces"></ul>
+      </section>
+    </div>
+    <div class="col">
+      <section id="checksSection">
+        <h2>What the CAD checked on this build</h2>
+        <ul class="checks" id="checks"></ul>
+      </section>
+      <p class="note" id="note"></p>
+      <p class="note">Every piece here comes out of the part's own CAD and is placed by the CAD's own functions. The distances are the CAD kernel's, measured at each step. The page is a picture and a ruler: it approves nothing.</p>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="model">__MODEL_JSON__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("model").textContent);
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+
+  // ---- the words: these need no 3D view ---------------------------------------------------------------------------
+  $("title").textContent = DATA.title; $("tagline").textContent = DATA.tag || ""; $("intro").textContent = DATA.intro || "";
+  $("note").textContent = DATA.note || ""; $("note").hidden = !DATA.note;
+  DATA.checks.forEach(function (c) { var li = el("li"); li.appendChild(el("b", "", c[0])); li.appendChild(el("span", "", c[1])); $("checks").appendChild(li); });
+  $("checksSection").hidden = !DATA.checks.length;
+  DATA.facts.forEach(function (f) { var d = el("div"); d.appendChild(el("dt", "", f[0])); d.appendChild(el("dd", "", f[1])); $("facts").appendChild(d); });
+  $("factsSection").hidden = !DATA.facts.length;
+
+  var moverByKey = {}; DATA.movers.forEach(function (m) { moverByKey[m.key] = m; });
+  var controls = $("controls"), buttons = $("buttons");
+  DATA.movers.forEach(function (m) {
+    var row = el("div", "slide"), label = el("label"), dot = el("span", "dot"), input = el("input"), out = el("output");
+    dot.style.background = "var(--c-" + m.colour + ")"; label.appendChild(dot); label.appendChild(document.createTextNode(m.label));
+    input.type = "range"; input.id = "mv-" + m.key; input.min = 0; input.max = m.steps - 1; input.step = 1; input.value = m.start;
+    input.style.accentColor = "var(--c-" + m.colour + ")"; label.htmlFor = input.id; out.htmlFor = input.id;
+    row.appendChild(label); row.appendChild(input); row.appendChild(out); controls.insertBefore(row, buttons);
+    m.input = input; m.out = out; m.at = m.start;
+  });
+  if (!DATA.movers.length) $("play").hidden = true;
+
+  var gapEls = DATA.gaps.map(function (g) {
+    var box = el("div", "gap"), big = el("div", "big"), now = el("span", "", "–"), halt = el("p", "halt"), note = el("p");
+    box.appendChild(el("div", "tag", g.label)); big.appendChild(now); big.appendChild(el("small", "", "mm apart")); box.appendChild(big);
+    halt.hidden = true; box.appendChild(halt); box.appendChild(note);
+    $("gaps").appendChild(box); return { box: box, now: now, note: note, halt: halt };
+  });
+
+  var canvas = $("view"), stage = $("stage"), renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true }); }
+  catch (e) {
+    stage.appendChild(el("div", "fail", "This browser could not start the 3D view. The checks and distances are the same either way."));
+    $("hint").hidden = true; return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.localClippingEnabled = true;
+
+  var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(32, 2, 1, 20000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f8c, 0.55));   // the three together stay near 1: no face burns out
+  var sun = new THREE.DirectionalLight(0xffffff, 0.45); scene.add(sun);
+  var fill = new THREE.DirectionalLight(0xffffff, 0.15); scene.add(fill);
+
+  // CAD space: z up. A turn of -90 degrees about x puts z up on screen: CAD (x, y, z) is drawn at (x, z, -y).
+  var root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
+  var bb = DATA.bbox, size = [bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]];
+  var cutAxis = size[0] >= size[1] ? 0 : 1, cutNormal = new THREE.Vector3(cutAxis === 0 ? -1 : 0, 0, cutAxis === 1 ? 1 : 0);
+  var clip = new THREE.Plane(cutNormal, 1e9);            // drawn-space plane: keeps what lies below the cut on that axis
+
+  function geometryFromStl(b64) {
+    var bin = atob(b64), n = bin.length, bytes = new Uint8Array(n);
+    for (var i = 0; i < n; i++) bytes[i] = bin.charCodeAt(i);
+    var dv = new DataView(bytes.buffer), count = dv.getUint32(80, true), pos = new Float32Array(count * 9), o = 84;
+    for (var t = 0; t < count; t++) { o += 12; for (var k = 0; k < 9; k++) { pos[t * 9 + k] = dv.getFloat32(o, true); o += 4; } o += 2; }
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.computeVertexNormals();
+    g.computeBoundingSphere(); g.computeBoundingBox(); return g;
+  }
+
+  // each group of a mover is its own node: one control can move several pieces along different paths
+  // and a control that rides on another hangs under the group that carries it
+  var meshes = {}, groups = [], groupAt = {};
+  DATA.movers.forEach(function (m) {
+    m.groups.forEach(function (g, number) {
+      var node = new THREE.Group(); node.matrixAutoUpdate = false;
+      var entry = { mover: m, number: number, node: node, poses: g.poses, has: {} }; groups.push(entry); groupAt[m.key + "/" + number] = entry;
+      g.pieces.forEach(function (key) { entry.has[key] = true; });
+    });
+  });
+  groups.forEach(function (g) { var up = g.mover.on; (up ? groupAt[up[0] + "/" + up[1]].node : root).add(g.node); });
+  function holderOf(key) { for (var i = 0; i < groups.length; i++) if (groups[i].has[key]) return groups[i].node; return root; }
+  DATA.pieces.forEach(function (p) {
+    var mat = new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.04, side: THREE.DoubleSide, clippingPlanes: [clip] });
+    if (p.colour === "steel") { mat.metalness = 0.55; mat.roughness = 0.4; }
+    var mesh = new THREE.Mesh(geometryFromStl(p.stl), mat); mesh.userData = p; meshes[p.key] = mesh; holderOf(p.key).add(mesh);
+  });
+
+  var gapMarks = DATA.gaps.map(function () {
+    var geom = new THREE.BufferGeometry(); geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+    var line = new THREE.Line(geom, new THREE.LineBasicMaterial({ depthTest: false })); line.renderOrder = 5; line.frustumCulled = false; root.add(line);
+    var ends = [0, 1].map(function () {
+      var s = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ depthTest: false }));
+      s.renderOrder = 6; root.add(s); return s;
+    });
+    return { line: line, ends: ends };
+  });
+  var pickDot = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ depthTest: false }));
+  pickDot.renderOrder = 7; pickDot.visible = false; root.add(pickDot);
+
+  // ---- colours follow the page's theme ---------------------------------------------------------------------------
+  function token(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  var picked = null;
+  function paint() {
+    var stageCol = new THREE.Color(token("--stage")), ink = token("--ink");
+    renderer.setClearColor(stageCol, 1);
+    DATA.pieces.forEach(function (p) {
+      var col = new THREE.Color(token("--c-" + p.colour)); if (p.tint) col.lerp(stageCol, p.tint);
+      var mat = meshes[p.key].material; mat.color.copy(col);
+      mat.emissive.set(picked === p.key ? token("--pick") : "#000000"); mat.emissiveIntensity = picked === p.key ? 0.28 : 0;
+    });
+    gapMarks.forEach(function (g) { g.line.material.color.set(ink); g.ends.forEach(function (s) { s.material.color.set(ink); }); });
+    pickDot.material.color.set(token("--pick"));
+    document.querySelectorAll("#pieces .sw").forEach(function (sw) { sw.style.background = "var(--c-" + sw.dataset.colour + ")"; });
+    invalidate();
+  }
+
+  // ---- the pieces list, with a switch for each -------------------------------------------------------------------
+  var rows = {};
+  DATA.pieces.forEach(function (p) {
+    var li = el("li"), box = el("input"), sw = el("span", "sw"), txt = el("label"), head = el("span");
+    box.type = "checkbox"; box.checked = true; box.id = "show-" + p.key; sw.dataset.colour = p.colour; txt.htmlFor = box.id;
+    if (p.code) head.appendChild(el("span", "code", p.code));
+    head.appendChild(document.createTextNode(p.name)); if (p.standIn) head.appendChild(el("em", "", "stand-in")); else if (p.bought) head.appendChild(el("em", "", "bought"));
+    txt.appendChild(head); if (p.note) txt.appendChild(el("small", "", p.note));
+    box.addEventListener("change", function () { meshes[p.key].visible = box.checked; if (picked === p.key && !box.checked) pick(null); place(); });
+    li.appendChild(box); li.appendChild(sw); li.appendChild(txt); $("pieces").appendChild(li); rows[p.key] = li;
+  });
+
+  // ---- rigid motion between two given steps: the one screw that carries the first onto the second ------------------
+  // Poses are twelve numbers, a 3 x 4 matrix row by row. Plain arithmetic, tested by test_working_model.py under node.
+  // motion:begin
+  function mul(a, b) {                                    // a after b
+    var o = [];
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++)
+      o.push(a[r * 4] * b[c] + a[r * 4 + 1] * b[4 + c] + a[r * 4 + 2] * b[8 + c] + (c === 3 ? a[r * 4 + 3] : 0));
+    return o;
+  }
+  function inv(m) {
+    var o = [];
+    for (var r = 0; r < 3; r++) o.push(m[r], m[4 + r], m[8 + r], -(m[r] * m[3] + m[4 + r] * m[7] + m[8 + r] * m[11]));
+    return o;
+  }
+  function carry(m, p) { return [0, 1, 2].map(function (r) { return m[r * 4] * p[0] + m[r * 4 + 1] * p[1] + m[r * 4 + 2] * p[2] + m[r * 4 + 3]; }); }
+  function between(A, B, t) {
+    if (t <= 0) return A; if (t >= 1) return B;
+    var D = mul(B, inv(A)), d = [D[3], D[7], D[11]], P;
+    var angle = Math.acos(Math.max(-1, Math.min(1, (D[0] + D[5] + D[10] - 1) / 2))), s = Math.sin(angle);
+    if (angle < 1e-9) P = [1, 0, 0, d[0] * t, 0, 1, 0, d[1] * t, 0, 0, 1, d[2] * t];
+    else {
+      var n;
+      if (Math.PI - angle > 1e-6) n = [(D[9] - D[6]) / (2 * s), (D[2] - D[8]) / (2 * s), (D[4] - D[1]) / (2 * s)];
+      else {                                              // half a turn: the axis is the longest column of R + 1
+        var k = D[0] >= D[5] && D[0] >= D[10] ? 0 : (D[5] >= D[10] ? 1 : 2);
+        var col = [D[k] + (k === 0 ? 1 : 0), D[4 + k] + (k === 1 ? 1 : 0), D[8 + k] + (k === 2 ? 1 : 0)], len = Math.hypot(col[0], col[1], col[2]);
+        n = [col[0] / len, col[1] / len, col[2] / len];
+      }
+      var dn = d[0] * n[0] + d[1] * n[1] + d[2] * n[2], perp = [d[0] - dn * n[0], d[1] - dn * n[1], d[2] - dn * n[2]];
+      var cross = [n[1] * perp[2] - n[2] * perp[1], n[2] * perp[0] - n[0] * perp[2], n[0] * perp[1] - n[1] * perp[0]], cot = 1 / Math.tan(angle / 2);
+      var c = [(perp[0] + cot * cross[0]) / 2, (perp[1] + cot * cross[1]) / 2, (perp[2] + cot * cross[2]) / 2];   // a point on the screw's axis
+      var a = angle * t, ca = Math.cos(a), sa = Math.sin(a), v = 1 - ca, x = n[0], y = n[1], z = n[2];
+      var R = [ca + x * x * v, x * y * v - z * sa, x * z * v + y * sa, y * x * v + z * sa, ca + y * y * v, y * z * v - x * sa, z * x * v - y * sa, z * y * v + x * sa, ca + z * z * v];
+      P = [];
+      for (var r = 0; r < 3; r++) P.push(R[r * 3], R[r * 3 + 1], R[r * 3 + 2], c[r] - (R[r * 3] * c[0] + R[r * 3 + 1] * c[1] + R[r * 3 + 2] * c[2]) + dn * n[r] * t);
+    }
+    return mul(P, A);
+  }
+  // A body is [control, group number], or null for what nothing moves; at(control) is that control's step.
+  function world(byKey, body, at) {                       // its own pose, then the pose of each control that carries it
+    var pose = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+    while (body) { var m = byKey[body[0]]; pose = mul(m.groups[body[1]].poses[at(body[0])], pose); body = m.on; }
+    return pose;
+  }
+  function found(gap, at) { var c = gap.table; for (var i = 0; i < gap.drivers.length; i++) c = c[at(gap.drivers[i])]; return gap.unique[c]; }
+  function reach(gaps, key, from, to, at) {               // how far a control gets before a gap that stops would be touching
+    var step = from, way = to > from ? 1 : -1, ahead = function (k) { return k === key ? step + way : at(k); };
+    while (step !== to) {
+      for (var n = 0; n < gaps.length; n++)
+        if (gaps[n].stops && gaps[n].drivers.indexOf(key) >= 0 && found(gaps[n], ahead).gap < 0.001) return { step: step, by: n };
+      step += way;
+    }
+    return { step: to, by: -1 };
+  }
+  // motion:end
+
+  // ---- state -----------------------------------------------------------------------------------------------------
+  var explode = 0, ghost = false, lift = DATA.lift;
+  var hasLayers = DATA.pieces.some(function (p) { return p.layer[0] || p.layer[1] || p.layer[2]; }), hasGhost = DATA.pieces.some(function (p) { return p.seeThrough; });
+  $("explodeRow").hidden = !hasLayers; $("ghost").hidden = $("ghostSep").hidden = !hasGhost;
+  var span = Math.max(size[0], size[1], size[2]), markR = Math.max(0.6, span / 220);
+  gapMarks.forEach(function (g) { g.ends.forEach(function (s) { s.scale.setScalar(markR); }); }); pickDot.scale.setScalar(markR * 1.2);
+
+  function stepNow(key) { return Math.round(moverByKey[key].at); }
+  function shown(m) { var i = Math.round(m.at); return m.marks ? m.marks[i] : m.unit + " " + i; }
+  var halted = null;                                     // { mover, gap }: the control a stop is holding, and the gap that holds it
+  function place() {
+    groups.forEach(function (g) {
+      var at = g.mover.at, i = Math.min(g.poses.length - 2, Math.floor(at)), p = between(g.poses[i], g.poses[i + 1], at - i);
+      g.node.matrix.set(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], 0, 0, 0, 1); g.node.matrixWorldNeedsUpdate = true;
+    });
+    DATA.pieces.forEach(function (p) { var k = explode * lift; meshes[p.key].position.set(k * p.layer[0], k * p.layer[1], k * p.layer[2]); });
+    DATA.movers.forEach(function (m) { var held = halted && halted.mover === m; m.out.textContent = shown(m) + (held ? " · stopped" : ""); m.out.classList.toggle("halt", !!held); });
+    if (picked && pickDot.visible) named(meshes[picked].userData, null);   // the point was where the piece stood then
+    var apart = explode > 0.001;
+    DATA.gaps.forEach(function (g, n) {
+      var u = found(g, stepNow), frame = world(moverByKey, g.bBody, stepNow), mark = gapMarks[n];
+      var arr = mark.line.geometry.attributes.position.array;
+      [u.pa, u.pb].forEach(function (p, i) {
+        var v = carry(frame, p);
+        arr[i * 3] = v[0]; arr[i * 3 + 1] = v[1]; arr[i * 3 + 2] = v[2]; mark.ends[i].position.set(v[0], v[1], v[2]);
+      });
+      mark.line.geometry.attributes.position.needsUpdate = true;
+      mark.line.visible = mark.ends[0].visible = mark.ends[1].visible = !apart;
+      var held = halted && halted.gap === n, bad = g.limit !== null && u.gap < g.limit, e = gapEls[n];
+      e.now.textContent = u.gap.toFixed(2); e.box.classList.toggle("bad", bad || !!held);
+      e.halt.hidden = !held; if (held) e.halt.textContent = halted.mover.label + " stops here: any further and these two meet.";
+      var where = g.drivers.map(function (k) { var m = moverByKey[k]; return m.label + (m.marks ? ": " : " at ") + shown(m); }).join(", ");
+      e.note.textContent = (u.gap < 0.001 ? "Touching or overlapping here. " : "") + (where ? where + ". " : "Nothing moves these two against each other. ") +
+        (g.stops ? "Where they would meet, the control stops." : !where ? "" : "The least at any step is " + g.least.toFixed(2) + " mm.") +
+        (g.limit === null ? "" : " The build refuses under " + g.limit.toFixed(2) + ".") + (g.note ? " " + g.note : "");
+    });
+    refit(); invalidate();
+  }
+
+  // ---- the camera: turn about the middle of the build, and stand back far enough to see all of it -----------------
+  var mid = [(bb[0] + bb[3]) / 2, (bb[1] + bb[4]) / 2, (bb[2] + bb[5]) / 2];
+  var target = new THREE.Vector3(mid[0], mid[2], -mid[1]);
+  var BASE = { "+y": Math.PI, "-y": 0, "+x": Math.PI / 2, "-x": -Math.PI / 2 }[DATA.front] || 0;
+  var VIEWS = { above: { theta: BASE + 0.5, phi: 1.02 }, front: { theta: BASE + 0.42, phi: 1.5 },
+                under: { theta: BASE + 0.2, phi: 2.72 }, end: { theta: BASE - Math.PI / 2 + 0.25, phi: 1.5 } };
+  var cam = { r: 400, theta: 0, phi: 1 }, goal = null, autoR = true, viewName = null;
+  var HALF = 25 * Math.PI / 180;                          // the sideways half-angle a narrow stage keeps
+  function corners() {                                    // the box round each piece that shows, where it stands now, as drawn
+    root.updateMatrixWorld(true);
+    var pts = [];
+    DATA.pieces.forEach(function (p) {
+      var mesh = meshes[p.key], b = mesh.geometry.boundingBox; if (!mesh.visible) return;
+      for (var i = 0; i < 8; i++) pts.push(new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(mesh.matrixWorld));
+    });
+    return pts;
+  }
+  function standBack(theta, phi) {
+    var s = Math.sin(phi), d = new THREE.Vector3(s * Math.sin(theta), Math.cos(phi), s * Math.cos(theta));
+    var right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), d).normalize(), up = new THREE.Vector3().crossVectors(d, right);
+    var ty = Math.tan(camera.fov * Math.PI / 360), tx = ty * camera.aspect, r = span * 0.05;
+    corners().forEach(function (v) { v.sub(target); r = Math.max(r, v.dot(d) + Math.abs(v.dot(right)) / tx, v.dot(d) + Math.abs(v.dot(up)) / ty); });
+    return r * 1.1;
+  }
+  function refit() { if (!autoR) return; if (goal) goal.r = standBack(goal.theta, goal.phi); else cam.r = standBack(cam.theta, cam.phi); }
+  function retarget() {                                   // turn about the middle of the build as it stands
+    var lo = new THREE.Vector3(1e18, 1e18, 1e18), hi = new THREE.Vector3(-1e18, -1e18, -1e18);
+    corners().forEach(function (v) { lo.min(v); hi.max(v); });
+    if (lo.x <= hi.x) target.copy(lo).add(hi).multiplyScalar(0.5);
+  }
+  function aim() {
+    var s = Math.sin(cam.phi);
+    camera.position.set(target.x + cam.r * s * Math.sin(cam.theta), target.y + cam.r * Math.cos(cam.phi), target.z + cam.r * s * Math.cos(cam.theta));
+    camera.lookAt(target);
+    sun.position.copy(camera.position).add(new THREE.Vector3(-0.4 * cam.r, 0.9 * cam.r, 0)); fill.position.copy(camera.position).add(new THREE.Vector3(0.5 * cam.r, -0.6 * cam.r, 0));
+  }
+  function setView(name, jump) {
+    viewName = name; autoR = true;
+    var v = VIEWS[name]; goal = { theta: v.theta, phi: v.phi, r: standBack(v.theta, v.phi) };
+    if (jump) { cam.theta = goal.theta; cam.phi = goal.phi; cam.r = goal.r; goal = null; }
+    document.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.view === name)); });
+    invalidate();
+  }
+  function setGhost(on) {
+    ghost = on; $("ghost").setAttribute("aria-pressed", String(on));
+    DATA.pieces.forEach(function (p) {
+      if (!p.seeThrough) return; var m = meshes[p.key].material;
+      m.transparent = on; m.opacity = on ? 0.22 : 1; m.depthWrite = !on; m.needsUpdate = true;
+    });
+    if (on && picked && meshes[picked].userData.seeThrough) pick(null);
+    invalidate();
+  }
+
+  // ---- tap a piece: its code, its name, and where on it ------------------------------------------------------------
+  var ray = new THREE.Raycaster();
+  function named(p, at) {
+    var chip = $("picked"); chip.textContent = ""; chip.hidden = !p; pickDot.visible = !!at;
+    if (!p) return;
+    if (p.code) chip.appendChild(el("b", "", p.code));
+    chip.appendChild(document.createTextNode(p.name + (p.standIn ? " (stand-in)" : "") +
+      (at ? "  ·  x " + at.x.toFixed(1) + "  y " + at.y.toFixed(1) + "  z " + at.z.toFixed(1) : "")));
+    if (at) pickDot.position.copy(at);
+  }
+  function pick(hit) {
+    if (picked && rows[picked]) rows[picked].classList.remove("on");
+    picked = hit ? hit.object.userData.key : null;
+    if (hit) rows[picked].classList.add("on");
+    named(hit ? hit.object.userData : null, hit ? root.worldToLocal(hit.point.clone()) : null);
+    paint();
+  }
+  function tap(e) {
+    var rect = canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1), camera);
+    var list = DATA.pieces.filter(function (p) { return meshes[p.key].visible && !(ghost && p.seeThrough); }).map(function (p) { return meshes[p.key]; });
+    var hits = ray.intersectObjects(list, false).filter(function (h) { return clip.distanceToPoint(h.point) >= 0; });
+    pick(hits.length ? hits[0] : null);
+  }
+
+  var pointers = {}, lastPinch = 0, moved = 0;
+  canvas.addEventListener("pointerdown", function (e) { try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* a pointer that is already gone */ } pointers[e.pointerId] = { x: e.clientX, y: e.clientY }; moved = 0; goal = null; $("hint").hidden = true; });
+  canvas.addEventListener("pointerup", function (e) { var one = Object.keys(pointers).length === 1; delete pointers[e.pointerId]; lastPinch = 0; if (one && moved < 5) tap(e); });
+  canvas.addEventListener("pointercancel", function (e) { delete pointers[e.pointerId]; lastPinch = 0; });
+  canvas.addEventListener("pointermove", function (e) {
+    var p = pointers[e.pointerId]; if (!p) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    var ids = Object.keys(pointers);
+    if (ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]], dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastPinch) { cam.r = Math.min(span * 12, Math.max(span * 0.15, cam.r * lastPinch / dist)); autoR = false; }
+      lastPinch = dist;
+    } else if (e.shiftKey || e.buttons === 2) {
+      var right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1), k = cam.r * 0.0016;
+      target.addScaledVector(right, -dx * k).addScaledVector(up, dy * k); autoR = false;
+    } else {
+      cam.theta -= dx * 0.006; cam.phi = Math.min(Math.PI - 0.06, Math.max(0.06, cam.phi - dy * 0.006));
+    }
+    invalidate();
+  });
+  canvas.addEventListener("wheel", function (e) { e.preventDefault(); goal = null; autoR = false; cam.r = Math.min(span * 12, Math.max(span * 0.15, cam.r * Math.exp(e.deltaY * 0.0012))); invalidate(); }, { passive: false });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ---- drawing only when something changed ------------------------------------------------------------------------
+  var queued = false, playing = null, playForward = true, trail = [];
+  function playName() { return DATA.play ? (playForward ? DATA.playLabel : DATA.backLabel) : "Play"; }
+  function stopPlay() { playing = null; $("play").textContent = playName(); }
+  function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function invalidate() { if (!queued) { queued = true; requestAnimationFrame(frame); } }
+  function frame(now) {
+    queued = false; var more = false;
+    if (goal) {
+      var done = true;
+      ["theta", "phi", "r"].forEach(function (k) { var d = goal[k] - cam[k]; if (Math.abs(d) > (k === "r" ? span * 0.002 : 0.002)) { cam[k] += d * 0.16; done = false; } else cam[k] = goal[k]; });
+      if (done) goal = null; else more = true;
+    }
+    if (playing && playing.queue) {                      // one control after another, each as far as nothing stops it
+      if (!playing.run) {
+        var next = playing.queue.shift();
+        if (!next) { playForward = !playing.forward; stopPlay(); }
+        else {
+          var from = Math.round(next.m.at), got = reach(DATA.gaps, next.m.key, from, next.to, stepNow);
+          if (playing.forward) trail.push({ m: next.m, from: from });
+          if (got.by >= 0) halted = { mover: next.m, gap: got.by };
+          playing.run = { m: next.m, from: next.m.at, to: got.step, start: now, ms: got.step === from ? 0 : Math.min(2600, 500 + 130 * Math.abs(got.step - from)), last: got.by >= 0 };
+        }
+      }
+      if (playing && playing.run) {
+        var r = playing.run, t = r.ms ? Math.min(1, (now - r.start) / r.ms) : 1;
+        r.m.at = r.from + (r.to - r.from) * ease(t); r.m.input.value = Math.round(r.m.at);
+        if (t >= 1) { r.m.at = r.to; playing.run = null; if (r.last) { playForward = !playing.forward; stopPlay(); } }
+        place();
+      }
+      if (playing) more = true;
+    } else if (playing) {
+      var t = Math.min(1, (now - playing.start) / playing.ms), e = ease(t);
+      playing.runs.forEach(function (r) { r.m.at = r.from + (r.to - r.from) * e; r.m.input.value = Math.round(r.m.at); });
+      if (t >= 1) { playing.runs.forEach(function (r) { r.m.at = r.to; }); stopPlay(); } else more = true;
+      place();
+    }
+    aim(); renderer.render(scene, camera);
+    if (more) invalidate();
+  }
+  function fit() {
+    var w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    var aspect = w / h;                                   // a narrow stage keeps its sideways angle and opens upright
+    camera.fov = aspect < 1.6 ? 2 * Math.atan(Math.tan(HALF) / aspect) * 180 / Math.PI : 32;
+    renderer.setSize(w, h, false); camera.aspect = aspect; camera.near = span / 200; camera.far = span * 40; camera.updateProjectionMatrix();
+    refit(); invalidate();
+  }
+
+  // ---- controls ----------------------------------------------------------------------------------------------------
+  DATA.movers.forEach(function (m) {
+    m.input.addEventListener("input", function () {      // a control goes as far as it is dragged, or as far as a stop lets it
+      stopPlay();
+      var got = reach(DATA.gaps, m.key, Math.round(m.at), +m.input.value, stepNow);
+      m.at = got.step; m.input.value = got.step; halted = got.by >= 0 ? { mover: m, gap: got.by } : null; place();
+    });
+  });
+  $("explode").addEventListener("input", function () {
+    explode = +this.value / 100; $("outE").textContent = explode ? Math.round(explode * 100) + " %" : "together";
+    place();
+  });
+  $("cut").addEventListener("input", function () {
+    var f = +this.value / 1000, lo = bb[cutAxis], hi = bb[cutAxis + 3], x = lo + (hi - lo) * f;
+    clip.constant = f >= 1 ? 1e9 : x; $("outC").textContent = f >= 1 ? "whole" : "at " + "xy"[cutAxis] + " " + x.toFixed(0);
+    if (picked) pick(null); invalidate();
+  });
+  $("ghost").addEventListener("click", function () { setGhost(!ghost); });
+  document.querySelectorAll("[data-view]").forEach(function (b) { b.addEventListener("click", function () { setView(b.dataset.view, false); }); });
+  $("play").addEventListener("click", function () {
+    if (playing) { stopPlay(); return; }
+    halted = null;
+    if (DATA.play) {
+      // the scene's own order, one control at a time; pressed again, each goes back the way it came, last first
+      var queue;
+      if (playForward) { trail = []; queue = DATA.play.map(function (move) { return { m: moverByKey[move[0]], to: move[1] }; }); }
+      else queue = trail.slice().reverse().map(function (was) { return { m: was.m, to: was.from }; });
+      playing = { queue: queue, run: null, forward: playForward };
+    } else {
+      // every mover runs its whole travel; every other one runs the opposite way, so two on one line pass each other
+      var runs = DATA.movers.map(function (m, i) { var up = (i % 2 === 0) === playForward; return { m: m, from: m.at, to: up ? m.steps - 1 : 0 }; });
+      playForward = !playForward; playing = { start: performance.now(), ms: 5200, runs: runs };
+    }
+    this.textContent = "Stop"; place(); invalidate();
+  });
+
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(stage); else window.addEventListener("resize", fit);
+  if (window.matchMedia) { var mq = window.matchMedia("(prefers-color-scheme: dark)"); (mq.addEventListener ? mq.addEventListener("change", paint) : mq.addListener(paint)); }
+  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  playForward = !!DATA.play || !DATA.movers.length || DATA.movers[0].start < (DATA.movers[0].steps - 1) / 2;
+  $("play").textContent = playName();
+  fit(); place(); retarget(); setView(DATA.startView || "above", true); if (DATA.seeThroughOpen && hasGhost) setGhost(true);
+  paint(); place();
+})();
+</script>

@@ -1,0 +1,71 @@
+# spec.yaml — the machine-checkable contract for a part.
+# The verify pipeline asserts exported geometry (and, after printing, the qa/
+# measurements) against THIS. "Looks right" is not "fits" — this is the target.
+part_id: <category>/<name>          # must match parts/index.yaml
+title: <human name>
+status: draft                       # draft | printed | dim-verified | released
+units: mm
+
+# Required at the next design/plate boundary. Restore cites an identified source part; Originate
+# may cite measured interfaces/standards but no source part. See parts/_TEMPLATE/spec.yaml.
+design:
+  schema: 1
+  mode: <restore|originate>
+  purpose: <job the accepted part must perform>
+  references:
+    - id: <stable reference id>
+      role: source                  # source | interface | standard
+      evidence: [<stable evidence ref>]
+
+# Non-draft status points at exact, human-completed evidence for the current geometry bytes.
+# Accepted statuses also require a human passed/* tag containing this path + SHA-256.
+# qualification:
+#   current: qa/iterations/<iteration-id>.yaml
+
+# Dimensions the part MUST hold. tol = ± allowed deviation.
+# Fit-critical values block unless provenance is measured or from a published standard.
+dimensions:
+  - name: outer_across_flats
+    nominal: 75.0
+    tol: 0.2
+    axis: xy
+    # Defaults fail on purpose — see parts/_TEMPLATE/spec.yaml for the three legal exits.
+    provenance: placeholder    # measured | standard | estimated | placeholder
+    fit_critical: true
+    reference: <replicate|deviate|originate>
+  # - name: bore, nominal: 70.6, tol: 0.2, axis: xy
+
+# OPTIONAL semantic fit identity across visually different variants.
+# fit_core:
+#   algorithm: sha256-kv-repr-v1
+#   fingerprint: 0123456789abcdef
+#   source: src/fit_critical.py
+#   variants: {faithful: 0123456789abcdef, expressive: 0123456789abcdef}
+#   regions: [shaft-bore, mounting-face]  # source-owned final-solid ROI assertions
+
+# Mating fits this part participates in (drives clearance choices).
+fits:
+  - name: slides_onto_printer_boss
+    type: slip            # press | transition | slip | clearance | loose
+    mates_with: K1C back vent boss
+    target_clearance: 0.3 # per side, mm (empirical — see research/results)
+
+# OPTIONAL print-frame support policy consumed by slice/verify-slice.
+# slice:
+#   orientation: {rotate_x: 0, rotate_y: 0, rotate_z: 0, rationale: "broad face on bed"}
+#   support:
+#     required: true
+#     keepouts:
+#       - {id: bore, shape: cylinder, axis: z, frame: bbox-min,
+#          center: [12.0, 8.0], radius: 2.2}
+#       - {id: angled-bore, shape: finite-cylinder, frame: bbox-min,
+#          center: [12.0, 8.0, 5.0], axis: [0.0, 0.7071, 0.7071],
+#          half_length: 8.0, radius: 2.2}
+
+# Bought hardware (vitamins) this part needs, if any.
+bom: []                   # e.g. [{item: M3x8 SHCS, qty: 4}]
+
+# Acceptance checks the verify step runs (CAD) and QA records (printed).
+acceptance:
+  cad: [manifold, no_self_intersection, single_solid]
+  printed: [all_dimensions_within_tol, fit_confirmed_on_real_mate]

@@ -1,0 +1,17 @@
+# fitment.schema.yaml — structured vehicle-fit metadata (VENTURE-facing).
+# The platform owns the SCHEMA; a consumer repo owns its
+# domain vocabularies + the actual product data. Keeps domain semantics OUT of
+# the OSS platform while giving ventures a shared, queryable contract.
+fitment:
+  make: <string>                 # e.g. Toyota
+  model: <string>                # e.g. Celica Supra
+  generation: <string>           # e.g. A60
+  year_range: [<start>, <end>]   # e.g. [1981, 1986]
+  trim: <string|null>
+  market: <string|null>          # JDM | US | EU | ...
+  oem_part_numbers: []           # incl. superseded / cross-reference numbers
+  verified_fit:
+    status: unverified           # unverified | community | dim-verified | released
+    material: <string>           # verification is per-material (ASA != PETG)
+    verified_by: <string|null>
+    evidence: []                 # links to qa/ measurements + photos

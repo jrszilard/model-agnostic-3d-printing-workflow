@@ -1,0 +1,110 @@
+part_id: examples/cable-clip
+handle: cable-clip
+title: Worked example — print-flat desk cable clip (6 mm cord)
+status: draft
+units: mm
+
+primary_stl: stl/cable-clip.stl
+primary_step: step/cable-clip.step
+build:
+  source: src/cable-clip.py
+  outputs:
+    - stl/cable-clip.stl
+    - step/cable-clip.step
+
+design:
+  schema: 1
+  mode: originate
+  purpose: Hold a standard 6.0 mm USB-C / power cable flat on a desk with a snap-in side entry.
+  references:
+    - id: usb-c-6mm-jacket-envelope
+      role: standard
+      evidence:
+        - "Nominal 6.0 mm braided USB-C / power cord outer diameter (standard envelope)"
+
+dimensions:
+  - name: overall_width
+    nominal: 24.0
+    tol: 0.25
+    axis: x
+    provenance: standard
+    fit_critical: false
+    reference: originate
+    measure:
+      file: stl/cable-clip.stl
+      method: bbox
+      axis: x
+  - name: overall_depth
+    nominal: 16.0
+    tol: 0.25
+    axis: y
+    provenance: standard
+    fit_critical: false
+    reference: originate
+    measure:
+      file: stl/cable-clip.stl
+      method: bbox
+      axis: y
+  - name: clip_height
+    nominal: 10.0
+    tol: 0.25
+    axis: z
+    provenance: standard
+    fit_critical: false
+    reference: originate
+    measure:
+      file: stl/cable-clip.stl
+      method: bbox
+      axis: z
+  - name: cable_bore_diameter
+    nominal: 6.4
+    tol: 0.2
+    axis: xy
+    provenance: standard
+    fit_critical: true
+    reference: originate
+  - name: entry_slot_width
+    nominal: 4.6
+    tol: 0.2
+    axis: x
+    provenance: standard
+    fit_critical: true
+    reference: originate
+  - name: back_wall_thickness
+    nominal: 4.8
+    tol: 0.2
+    axis: y
+    provenance: standard
+    fit_critical: false
+    reference: originate
+
+probes:
+  - id: cable-bore-clear
+    region: {shape: box, xmin: -2.0, xmax: 2.0, ymin: -1.5, ymax: 1.5, zmin: 0.5, zmax: 9.5}
+    expect: outside
+  - id: entry-slot-open
+    region: {shape: box, xmin: -1.8, xmax: 1.8, ymin: 2.0, ymax: 7.5, zmin: 0.5, zmax: 9.5}
+    expect: outside
+  - id: back-wall-solid
+    region: {shape: box, xmin: -6.0, xmax: 6.0, ymin: -7.5, ymax: -4.0, zmin: 0.5, zmax: 9.5}
+    expect: inside
+
+fits:
+  - name: cord_retention_bore
+    type: slip
+    mates_with: 6.0 mm nominal USB-C / power cord
+    target_clearance: 0.2
+
+acceptance:
+  cad:
+    - single_solid
+    - closed
+    - no_bad_faces
+  printed:
+    - holds_6mm_cord_without_slipping
+    - cord_snaps_in_cleanly
+
+slice:
+  orientation: flat-on-bed-z0
+  supports: none
+  brim_mm: 0

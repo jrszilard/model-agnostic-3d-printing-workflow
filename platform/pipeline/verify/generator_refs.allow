@@ -1,0 +1,2 @@
+# Known-dangling coupon references ratchet (format: path:module.attr).
+# Empty by default in the public workflow repo. Consumers keep their own if needed.

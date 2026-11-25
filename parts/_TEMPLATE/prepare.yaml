@@ -1,0 +1,24 @@
+# Deliberately incomplete. Resolve the objective, canonical paths, presets/resources and checks.
+# docs/preparation.md owns the schema. No kind supplies approval or relaxes a fit/safety gate.
+schema: 1
+kind: <bench-experiment|prototype|release>
+objective: <one bounded question or acceptance objective>
+stop_condition: <evidence that ends preparation and the human test that follows>
+plate: build/<unique-plate>
+slice_args:
+  - --machine
+  - <installed machine preset>
+  - --process
+  - <installed print preset>
+  - --filament
+  - <installed filament preset, not actual-spool evidence>
+  # No brim unless necessary; see docs/workflow.md, "Brims are an exception, not a default".
+  # Document any necessary exception and disclose its settings/removal plan before approval.
+  - --brim
+  - '0'
+profile_resources:
+  - <complete installed vendor/user profile stores and real slicer deployment>
+tool_resources: []
+checks: []
+check_inputs: []
+post_hooks: []

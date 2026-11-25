@@ -1,0 +1,12 @@
+# Normalize text; treat CAD/mesh as binary.
+* text=auto
+*.stl  binary
+*.step binary
+*.stp  binary
+*.3mf  binary
+*.FCStd binary
+
+# To move committed geometry to Git LFS later, uncomment (needs `git lfs install`):
+# *.stl  filter=lfs diff=lfs merge=lfs -text
+# *.step filter=lfs diff=lfs merge=lfs -text
+# *.3mf  filter=lfs diff=lfs merge=lfs -text

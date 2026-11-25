@@ -1,0 +1,28 @@
+{
+  "schema": 2,
+  "part_id": "<category>/<name>",
+  "handle": "<short-handle>",
+  "created": "YYYY-MM-DD",
+  "authoring": {
+    "method": "ai-cadquery | ai-openscad | scan-to-cad | hand-cad",
+    "model": null,
+    "model_revision": null,
+    "provider": null,
+    "prompt_summary": "one-line intent; full prompts in prompts/ if kept",
+    "seed": null,
+    "human_edits": "what a human changed after generation"
+  },
+  "toolchain": {
+    "lock_path": "platform/toolchain.lock",
+    "lock_sha256": null,
+    "python": null,
+    "cadquery": null,
+    "ocp": null,
+    "openscad": null,
+    "prusaslicer": null,
+    "other": []
+  },
+  "source_commit": null,
+  "artifacts": [],
+  "reference_inputs": []
+}

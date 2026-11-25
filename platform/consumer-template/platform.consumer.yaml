@@ -1,0 +1,25 @@
+platform:
+  root: __PLATFORM_ROOT__
+  # Version handshake: PLATFORM_VERSION is this consumer's pin; VERSION is published by the workflow.
+  version_file: PLATFORM_VERSION
+  published_version_file: VERSION
+  contract: platform/AGENTS.md
+  workflow: docs/workflow.md
+
+entrypoints:
+  prepare: platform/pipeline/prepare/prepare.sh
+  build: platform/pipeline/generate/build.sh
+  producer: platform/pipeline/generate/build_provenance.py
+  render: platform/pipeline/preview/render.sh
+  verify: platform/pipeline/verify/verify.sh
+  verify_slice: platform/pipeline/verify/verify-slice.sh
+  slice: platform/pipeline/slice/slice.sh
+  handoff: platform/pipeline/handoff/handoff.sh
+  qualification: platform/pipeline/verify/qualification_check.py
+  next_action: platform/pipeline/next_action.py
+  plate_inventory: platform/pipeline/plate_inventory.py
+  plate_scope: platform/pipeline/plate_scope.py
+  send: platform/pipeline/send/send.sh
+
+library_roots:
+  cad_parts_lib: parts/_lib

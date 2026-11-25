@@ -1,0 +1,18 @@
+# toolchain.lock — declared versions for the primary current geometry/slice path.
+#
+# WHY THIS FILE EXISTS
+# The repo no longer tracks assembly/mockup/variant geometry: it is regenerated on demand instead.
+# That trade is only safe if a rebuild reproduces the same solid. CadQuery/OCCT tessellation and
+# OpenSCAD's CGAL output are version-dependent, so "regenerate it later" requires exact versions.
+# COVERAGE IS CURRENTLY INCOMPLETE: tracked generators also use FreeCAD and NumPy/Pillow, while old
+# provenance names other OpenSCAD/slicer versions. toolchain.sh checks every declaration below; it
+# does not attest that every producer is declared or that an old artifact used these versions. See
+# research/audits/2026-09-04-cad-fdm-best-practices.md. Re-verify whenever a version or producer moves.
+#
+# Check with: platform/pipeline/toolchain.sh
+cadquery      = 2.8.0
+ocp           = 7.9.3.1
+python        = 3.14.7
+openscad      = 2021.01
+prusaslicer   = 2.9.6
+cadquery_venv = ~/cadquery-env
