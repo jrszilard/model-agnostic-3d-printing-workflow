@@ -25,9 +25,10 @@ class Bytes(unittest.TestCase):
     def test_seals_block_write_grow_shrink_and_seal_removal(self):
         with s.SealedInputs({"main.py": b"original"}) as inputs:
             fd = inputs.fds["main.py"]
+            future_write = getattr(fcntl, "F_SEAL_FUTURE_WRITE", 0x0010)
             for action in (lambda: os.write(fd, b"bad"), lambda: os.ftruncate(fd, 1),
                            lambda: os.ftruncate(fd, 100),
-                           lambda: fcntl.fcntl(fd, fcntl.F_ADD_SEALS, fcntl.F_SEAL_FUTURE_WRITE)):
+                           lambda: fcntl.fcntl(fd, fcntl.F_ADD_SEALS, future_write)):
                 with self.assertRaises(OSError):
                     action()
             self.assertEqual(os.pread(fd, 8, 0), b"original")
