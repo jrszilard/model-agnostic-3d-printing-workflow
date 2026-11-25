@@ -31,7 +31,7 @@ If you have CadQuery installed (e.g. in `~/cadquery-env/bin/python` or `$CADQUER
 
 - **Adding or modifying a gate (`*_RESULT`):** update `platform/pipeline/gates.txt` and ensure `platform/pipeline/test_gates.py` passes. Any flag-dependent checker must call `gates.declare_mode()`.
 - **Editing `parts/_lib/joints.py`:** regenerate the mirror with `python3 parts/_lib/render_registry.py` (tested by `test.sh`).
-- **Adding a worked example:** place small, self-contained, MIT-licensed examples under `examples/<name>/` (source, `spec.yaml`, README, and compact exports well under the 2 MiB file limit — no `.gcode` files).
+- **Adding a worked example:** place small, self-contained, AGPL-3.0-compatible examples under `examples/<name>/` (source, `spec.yaml`, README, and compact exports well under the 2 MiB file limit — no `.gcode` files).
 - **Adding a printer/slicer adapter:** keep credentials in an external env file (with only a `.env.example` placeholder in the repo), preserve `handoff.txt` + `qualification_manifest.json` + `APPROVED=1` checks, and add offline unit tests using mocks/fixtures.
 
 ## Pull request checklist

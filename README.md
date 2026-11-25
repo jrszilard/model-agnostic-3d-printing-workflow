@@ -68,7 +68,7 @@ scripts/install-hooks.sh
 
 ### 2. Inspect a worked example
 
-See [`examples/cable-clip/`](examples/cable-clip/README.md) for a minimal, MIT-licensed parametric CadQuery part with a `spec.yaml`, B-rep probes, and passing `verify.sh` output.
+See [`examples/cable-clip/`](examples/cable-clip/README.md) for a minimal, open-source parametric CadQuery part with a `spec.yaml`, B-rep probes, and passing `verify.sh` output.
 
 If you have CadQuery (`~/cadquery-env/bin/python`, or set `CADQUERY_PY`) installed:
 
@@ -104,7 +104,7 @@ $EDITOR ~/.config/3d-printing-workflow/prusalink.env
 | `parts/_TEMPLATE/` | Starter part template with intentionally failing defaults until filled |
 | `slicer-profiles/` | Reference slicer profiles (PrusaSlicer / Core One, OrcaSlicer layout) |
 | `docs/` | Canonical process ([`workflow.md`](docs/workflow.md), [`preparation.md`](docs/preparation.md), [`consumer-contract.md`](docs/consumer-contract.md), [`versioning.md`](docs/versioning.md), [`text-to-cad.md`](docs/text-to-cad.md)) |
-| `examples/` | Curated MIT-licensed worked examples |
+| `examples/` | Curated open-source worked examples |
 | `scripts/check-public.py` | Automated guard blocking credentials, local machine paths, and personal print clutter |
 
 ## Current hardware & toolchain scope
@@ -126,4 +126,6 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md) before
 
 ## License
 
-[MIT](LICENSE)
+[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
+AGPL-3.0 applies to the workflow tooling in this repository and any modified or network-hosted versions of it so improvements stay open source. Running the CLI tools on your own parts does **not** place your CAD models, STLs, STEP files, or physical prints under AGPL-3.0 — your designs remain yours under whatever license you choose.

@@ -1,6 +1,6 @@
 # Worked Example: `examples/cable-clip`
 
-A minimal, MIT-licensed parametric CadQuery part demonstrating the digital verification loop end-to-end.
+A minimal, AGPL-3.0-licensed parametric CadQuery part demonstrating the digital verification loop end-to-end.
 
 - **Geometry:** Print-flat desk clip for a nominal 6.0 mm cord (24 × 16 × 10 mm, zero overhangs, zero supports, flat on Z=0).
 - **Contract:** `spec.yaml` declares `design.mode: originate`, dimension provenance, bounding-box measurement recipes, and three exact B-rep probes (`cable-bore-clear`, `entry-slot-open`, `back-wall-solid`).
